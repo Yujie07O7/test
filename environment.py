@@ -5,7 +5,6 @@ from env.loader import Loader
 from finta import TA
 import pandas as pd
 
-
 class PortfolioEnv:
 
     def __init__(self, start_date=None, end_date=None, action_scale=1, action_interpret='portfolio',
@@ -26,6 +25,8 @@ class PortfolioEnv:
         self.action_scale = action_scale
         self.action_interpret = action_interpret
         self.state_type = state_type
+        
+        # 第一步驟
         self.freerate = 0
         self.windows = 30
         self.returns = []
@@ -62,7 +63,10 @@ class PortfolioEnv:
         return self.get_state()
 
     def get_prices(self):
-        return np.array([stock['Close'][self.current_row] for stock in self.historical_data])
+        prices = np.array([stock['Close'][self.current_row] for stock in self.historical_data])
+        print(f"當前價格: {prices}")  # Debug
+        return prices
+
 
     def get_state(self):
 
@@ -142,6 +146,7 @@ class PortfolioEnv:
 
         return intervals
 
+    # 第二步驟
     def step(self, action, softmax=True):
         
         if self.action_interpret == 'portfolio':
@@ -155,37 +160,45 @@ class PortfolioEnv:
             cost = self.prices.dot(actions)
             self.shares = self.shares + actions.astype(np.int)
             self.balance -= cost
+
+            previous_sharpe = self._calculate_sharpe_ratio()
+            previous_wealth = self.get_wealth()
+
             self.current_row += 1
             new_prices = self.get_prices()
-            current_return = (new_prices - self.prices)/self.prices
+            current_return = (new_prices - self.prices) / self.prices
             self.returns.append(current_return)
+            self.prices = new_prices  # 更新價格
+            
 
+        # 計算新的 Sharpe Ratio
             sharpe_ratio = self._calculate_sharpe_ratio()
-            print('sharpe_ratio',sharpe_ratio)
-            reward = sharpe_ratio
-    
-        
-        if self.action_interpret == 'transactions':
-            actions = np.maximum(np.round(np.array(action) * self.action_scale), -self.shares)
-            cost = self.prices.dot(actions)
-            if cost > self.balance:
-                actions = np.floor(actions * self.balance / cost)
-                cost = self.prices.dot(actions)
-            self.shares = self.shares + actions.astype(np.int)
-            self.balance -= cost
-            self.current_row += 1
-            new_prices = self.get_prices()
-            current_return = (new_prices - self.prices)/self.prices
-            self.returns.append(current_return)
+            new_wealth = self.get_wealth()
 
-            sharpe_ratio = self._calculate_sharpe_ratio()
-            print('sharpe_ratio',sharpe_ratio)
-            reward = sharpe_ratio
+            cumulative_return = self.get_wealth() - 1000000
+
+        # 調整 reward，讓 wealth 變化影響 reward
+            reward = (sharpe_ratio - previous_sharpe) + (new_wealth - previous_wealth) * 100
+
+        # 確保 wealth 變化合理
+            print(f"日期: {self.get_date()}, 當前價格: {self.prices}")
+            print(f"持股: {self.shares}, 資金: {self.balance}, 總資產: {new_wealth}")
+            print(f"Sharpe Ratio: {sharpe_ratio}, Reward: {reward}, Cumulative Return: {cumulative_return}")
+            
         return self.get_state(), reward, self.is_finished(), self.get_date(), self.get_wealth()
+        
+ # 第三步驟
+    def _calculate_sharpe_ratio(self, window_size=30):
+        min_window = min(len(self.returns), window_size)  # 確保不會超過現有數據
+        if min_window < 5:  
+            return 0  # 如果回報數據太少，避免極端值
 
-    def _calculate_sharpe_ratio(self):
-        if len(self.returns) < self.windows:
-            return 0  # 避免初期數據不足導致除零錯誤
-        excess_returns = np.array(self.returns)  # 無風險利率設為 0
-        sharpe_ratio = np.mean(excess_returns) / (np.std(excess_returns) + 1e-8)
+        recent_returns = np.array(self.returns[-min_window:])  # 只使用最近的回報
+        mean_return = np.mean(recent_returns)
+        std_return = np.std(recent_returns) + 1e-8  # 避免除 0
+
+        sharpe_ratio = (mean_return - self.freerate) / std_return
         return sharpe_ratio
+
+				    
+				    
