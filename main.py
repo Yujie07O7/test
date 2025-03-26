@@ -8,16 +8,16 @@ import plot
 import torch.multiprocessing as mp
 import os
 import pandas as pd
-
+'''
 param_grid = {
-    "alpha": [1e-4,  5e-4],  # 學習率
-    "n_epochs": [10,  30],  # 訓練回合數
-    "batch_size": [64,  256],  # 批次大小
-    "layer1_size": [256,  1024],  # 第一層神經元數量
-    "layer2_size": [256,  1024],  # 第二層神經元數量
-    "policy_clip": [0.1,  0.3],  # PPO clip 參數
-    "gamma": [0.95,  0.995],  # 折扣因子
-    "entropy": [0,  0.01],  # 熵係數
+    "alpha": [3e-4, 5e-4],  # 學習率
+    "n_epochs": [30, 40],  # 訓練回合數
+    "batch_size": [64,  128],  # 批次大小
+    "layer1_size": [512, 1024],  # 第一層神經元數量
+    "layer2_size": [512, 1024],  # 第二層神經元數量
+    "policy_clip": [0.2,  0.3],  # PPO clip 參數
+    "gamma": [0.95,  0.97],  # 折扣因子
+    "entropy": [0.01,  0.03],  # 熵係數
     "gae_lambda": [0.95,  0.99],  # GAE lambda
 }
 MAX_TRIALS = 10
@@ -35,7 +35,7 @@ for i, params in enumerate(param_combinations):
 
     # 訓練 PPO
     model = PPO(**param_dict)
-    final_reward = model.train(verbose=0,max_episodes=50)
+    final_reward = model.train(verbose=0)
 
     # 記錄結果
     results.append({**param_dict, "final_reward": final_reward})
@@ -45,13 +45,13 @@ for i, params in enumerate(param_combinations):
 results_df = pd.DataFrame(results)
 results_df.to_csv("ppo_grid_search_results.csv", index=False)
 print("📊 Grid search results saved to ppo_grid_search_results.csv")
-
+'''
 def main():
 
     plot.initialize()
     mp.set_start_method('spawn')
 
-    for i in range(1):
+    for i in range(50):
         print(f"---------- round {i} ----------")
         if not os.path.isfile(f'plots/ppo/{i}2_testing.png'):
             ppo = PPO(state_type='indicators', djia_year=2019, repeat=i)
